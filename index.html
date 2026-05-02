@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scorelens — Voice eval recorder</title>
+  <style>
+    :root {
+      --indigo: #6366f1;
+      --indigo-dark: #4f46e5;
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --border: #e5e7eb;
+      --text: #111827;
+      --muted: #6b7280;
+      --green: #16a34a;
+      --red: #dc2626;
+      --amber: #d97706;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 16px 20px;
+      background: white;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    h1 { font-size: 18px; margin: 0; font-weight: 600; }
+    .stats { font-size: 13px; color: var(--muted); }
+    main { max-width: 760px; margin: 0 auto; padding: 16px 20px 80px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tabs button {
+      flex: 1;
+      padding: 10px 12px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .tabs button[aria-pressed="true"] {
+      background: var(--indigo);
+      color: white;
+      border-color: var(--indigo);
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #eef2ff;
+      color: var(--indigo-dark);
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .description { font-size: 16px; margin: 8px 0 12px; line-height: 1.4; }
+    .expected {
+      font-family: ui-monospace, SFMono-Regular, "Menlo", monospace;
+      font-size: 12px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #374151;
+      white-space: pre-wrap;
+      max-height: 140px;
+      overflow: auto;
+    }
+    .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    button.primary {
+      background: var(--indigo);
+      color: white;
+      border: 0;
+      border-radius: 14px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.primary:hover { background: var(--indigo-dark); }
+    button.primary[disabled] { opacity: 0.4; cursor: not-allowed; }
+    button.danger { background: var(--red); color: white; border: 0; border-radius: 14px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+    button.ghost {
+      background: white;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button.ghost:hover { background: #f9fafb; }
+    .transcript {
+      width: 100%;
+      min-height: 90px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 15px;
+      font-family: inherit;
+      resize: vertical;
+    }
+    .recording-dot {
+      display: inline-block;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--red);
+      margin-right: 6px;
+      animation: pulse 1s infinite;
+    }
+    @keyframes pulse { 50% { opacity: 0.3; } }
+    .live-list {
+      max-height: 360px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 4px;
+      background: white;
+    }
+    .live-row {
+      display: flex;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 13px;
+      align-items: flex-start;
+    }
+    .live-row:last-child { border-bottom: 0; }
+    .ts { color: var(--muted); font-family: ui-monospace, monospace; min-width: 60px; }
+    .review-section { margin-top: 12px; }
+    .review-section h3 { font-size: 13px; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .button-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .button-grid button {
+      padding: 8px 4px;
+      font-size: 13px;
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .button-grid button[aria-pressed="true"] {
+      background: var(--indigo);
+      color: white;
+      border-color: var(--indigo);
+    }
+    input[type="text"] {
+      padding: 8px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 14px;
+      font-family: inherit;
+      width: 80px;
+      text-align: center;
+    }
+    .footer-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 12px 20px;
+      background: white;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .badge { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .badge.green { background: #dcfce7; color: var(--green); }
+    .badge.amber { background: #fef3c7; color: var(--amber); }
+    .badge.red { background: #fee2e2; color: var(--red); }
+    .hidden { display: none !important; }
+    @media (max-width: 600px) {
+      .button-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Scorelens — Voice eval recorder</h1>
+    <div class="stats" id="stats">Loading…</div>
+  </header>
+  <main>
+    <div class="tabs" role="tablist">
+      <button id="tab-prompted" role="tab" aria-pressed="true">Mode A · Prompted</button>
+      <button id="tab-live" role="tab" aria-pressed="false">Mode B · Live narration</button>
+      <button id="tab-export" role="tab" aria-pressed="false">Export</button>
+    </div>
+
+    <!-- ============ MODE A · PROMPTED ============ -->
+    <section id="panel-prompted">
+      <div class="card" id="prompt-card">
+        <span class="pill" id="p-context">idle</span>
+        <span class="pill" id="p-progress" style="margin-left:6px;background:#fef3c7;color:#92400e">1 / 50</span>
+        <p class="description" id="p-description">Loading prompts…</p>
+        <details>
+          <summary style="cursor:pointer;font-size:12px;color:var(--muted)">Show expected parse</summary>
+          <pre class="expected" id="p-expected"></pre>
+        </details>
+      </div>
+
+      <div class="card">
+        <div id="p-status" class="stats" style="margin-bottom:8px">Idle.</div>
+        <textarea
+          class="transcript"
+          id="p-transcript"
+          placeholder="Tap Start, speak naturally, tap Stop. Edit the transcript here if needed."
+        ></textarea>
+        <div class="actions">
+          <button class="primary" id="p-start">Start</button>
+          <button class="primary" id="p-stop" disabled>Stop</button>
+          <button class="ghost" id="p-save">Save &amp; Next</button>
+          <button class="ghost" id="p-skip">Skip</button>
+          <button class="ghost" id="p-prev">← Prev</button>
+          <button class="ghost" id="p-next">Next →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ MODE B · LIVE NARRATION ============ -->
+    <section id="panel-live" class="hidden">
+      <div class="card">
+        <p style="margin:0 0 10px;font-size:14px">
+          Tap <strong>Start</strong> to capture the next utterance, then <strong>Stop</strong>.
+          Each utterance is timestamped and saved with its transcript.
+          When the game ends, switch to the <em>Review</em> section below to label the expected parse for each.
+        </p>
+        <div id="live-status" class="stats" style="margin-bottom:8px">Idle.</div>
+        <div class="actions">
+          <button class="primary" id="live-start">Start utterance</button>
+          <button class="primary" id="live-stop" disabled>Stop</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted)">Captured (<span id="live-count">0</span>)</h3>
+        <div class="live-list" id="live-list">
+          <div class="live-row" style="color:var(--muted)">No utterances yet — tap Start above.</div>
+        </div>
+      </div>
+
+      <div class="card" id="review-card" style="display:none">
+        <h3 style="margin:0 0 8px;font-size:14px">Label expected parse</h3>
+        <div id="review-row-info" class="stats" style="margin-bottom:8px"></div>
+        <div class="transcript" id="review-transcript" style="background:#f9fafb;cursor:default" contenteditable="false"></div>
+
+        <div class="review-section">
+          <h3>Event</h3>
+          <div class="button-grid" id="review-event">
+            <button data-event="2PT_MADE">2PT make</button>
+            <button data-event="2PT_MISS">2PT miss</button>
+            <button data-event="3PT_MADE">3PT make</button>
+            <button data-event="3PT_MISS">3PT miss</button>
+            <button data-event="FT_MADE">FT make</button>
+            <button data-event="FT_MISS">FT miss</button>
+            <button data-event="AST">AST</button>
+            <button data-event="REB_DEF">REB d</button>
+            <button data-event="REB_OFF">REB o</button>
+            <button data-event="STL">STL</button>
+            <button data-event="BLK">BLK</button>
+            <button data-event="TOV">TOV</button>
+            <button data-event="FOUL">FOUL</button>
+            <button data-event="SUB_IN">SUB in</button>
+            <button data-event="SUB_OUT">SUB out</button>
+            <button data-event="TIMEOUT">TIMEOUT</button>
+            <button data-event="__no_event__">No event</button>
+            <button data-event="__skip__">Skip / undo</button>
+          </div>
+        </div>
+
+        <div class="review-section">
+          <h3>Jersey</h3>
+          <input type="text" id="review-jersey" placeholder="#" maxlength="4" />
+          <label style="font-size:13px;margin-left:12px">
+            <input type="checkbox" id="review-no-jersey" /> No jersey (away unattributed)
+          </label>
+        </div>
+
+        <div class="review-section">
+          <h3>Side</h3>
+          <div style="display:flex;gap:8px">
+            <button class="ghost" id="review-side-home" aria-pressed="true">Home (us)</button>
+            <button class="ghost" id="review-side-away" aria-pressed="false">Away (opp)</button>
+          </div>
+        </div>
+
+        <div class="actions" style="margin-top:14px">
+          <button class="primary" id="review-save">Save &amp; next</button>
+          <button class="ghost" id="review-skip">Skip this row</button>
+          <button class="danger" id="review-delete">Delete</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ EXPORT ============ -->
+    <section id="panel-export" class="hidden">
+      <div class="card">
+        <h3 style="margin-top:0">Export to JSONL</h3>
+        <p style="font-size:14px">
+          Downloads <code>voice_parse_eval.jsonl</code> with all saved
+          rows from both Mode A and Mode B (labelled rows only). Commit
+          the file to <code>docs/voice_parse_eval.jsonl</code> in the
+          scorelens repo.
+        </p>
+        <div id="export-stats" class="stats" style="margin-bottom:12px"></div>
+        <div class="actions">
+          <button class="primary" id="export-download">Download .jsonl</button>
+          <button class="ghost" id="export-clear">Clear all saved rows</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Schema reference</h3>
+        <pre class="expected">{
+  "transcript": "kai three",
+  "context": "idle",
+  "expected_parse": {
+    "event_type": "3PT_MADE",
+    "player_jersey": "23"
+  },
+  "wall_clock_ms": 1719000000000,
+  "mode": "prompted" | "live",
+  "prompt_id": "p001"            // present for Mode A only
+}</pre>
+      </div>
+    </section>
+  </main>
+
+  <div class="footer-bar">
+    <div>
+      <span class="badge" id="mic-badge">Mic: unknown</span>
+      <span class="badge green" id="saved-badge" style="margin-left:6px">Saved: 0</span>
+    </div>
+    <div class="stats" id="footer-hint">Ready.</div>
+  </div>
+
+<script>
+"use strict";
+
+// ============================================================================
+// Storage — IndexedDB ('scorelens-voice-eval')
+// ============================================================================
+const DB_NAME = "scorelens-voice-eval";
+const DB_VERSION = 1;
+const STORE_SAVED = "saved";
+const STORE_LIVE = "live";
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onerror = () => reject(req.error);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE_SAVED)) {
+        db.createObjectStore(STORE_SAVED, { keyPath: "id", autoIncrement: true });
+      }
+      if (!db.objectStoreNames.contains(STORE_LIVE)) {
+        db.createObjectStore(STORE_LIVE, { keyPath: "id", autoIncrement: true });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+  });
+}
+
+async function dbAdd(store, value) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    const req = tx.objectStore(store).add(value);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbAll(store) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readonly");
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbDelete(store, id) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    const req = tx.objectStore(store).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+async function dbClear(store) {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, "readwrite");
+    const req = tx.objectStore(store).clear();
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+// ============================================================================
+// Web Speech wrapper
+// ============================================================================
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition;
+
+const micBadge = document.getElementById("mic-badge");
+const isSpeechSupported = typeof SpeechRecognition === "function";
+micBadge.textContent = isSpeechSupported
+  ? "Mic: ready (Web Speech)"
+  : "Mic: unsupported (use Chrome / Safari)";
+micBadge.className = "badge " + (isSpeechSupported ? "green" : "red");
+
+function makeRecognizer() {
+  if (!isSpeechSupported) return null;
+  const r = new SpeechRecognition();
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = "en-US";
+  return r;
+}
+
+// ============================================================================
+// Tabs
+// ============================================================================
+const tabPrompted = document.getElementById("tab-prompted");
+const tabLive = document.getElementById("tab-live");
+const tabExport = document.getElementById("tab-export");
+const panelPrompted = document.getElementById("panel-prompted");
+const panelLive = document.getElementById("panel-live");
+const panelExport = document.getElementById("panel-export");
+
+function activateTab(name) {
+  for (const [tab, panel] of [
+    [tabPrompted, panelPrompted],
+    [tabLive, panelLive],
+    [tabExport, panelExport],
+  ]) {
+    const isActive = tab.id === "tab-" + name;
+    tab.setAttribute("aria-pressed", isActive ? "true" : "false");
+    panel.classList.toggle("hidden", !isActive);
+  }
+  if (name === "export") refreshExportStats();
+}
+tabPrompted.onclick = () => activateTab("prompted");
+tabLive.onclick = () => activateTab("live");
+tabExport.onclick = () => activateTab("export");
+
+// ============================================================================
+// Stats
+// ============================================================================
+const statsEl = document.getElementById("stats");
+const savedBadge = document.getElementById("saved-badge");
+async function refreshStats() {
+  const saved = await dbAll(STORE_SAVED);
+  const live = await dbAll(STORE_LIVE);
+  const labelled = saved.length;
+  statsEl.textContent = `${labelled} labelled · ${live.length} captured (live, unlabelled)`;
+  savedBadge.textContent = `Saved: ${labelled}`;
+}
+
+// ============================================================================
+// Mode A — Prompted
+// ============================================================================
+let prompts = [];
+let promptIndex = 0;
+let pRecognizer = null;
+let pTranscriptDraft = "";
+
+const pContext = document.getElementById("p-context");
+const pProgress = document.getElementById("p-progress");
+const pDescription = document.getElementById("p-description");
+const pExpected = document.getElementById("p-expected");
+const pStatus = document.getElementById("p-status");
+const pTranscript = document.getElementById("p-transcript");
+const pStart = document.getElementById("p-start");
+const pStop = document.getElementById("p-stop");
+const pSave = document.getElementById("p-save");
+const pSkip = document.getElementById("p-skip");
+const pPrev = document.getElementById("p-prev");
+const pNext = document.getElementById("p-next");
+
+async function loadPrompts() {
+  try {
+    const res = await fetch("./prompts.json");
+    prompts = await res.json();
+    renderPrompt();
+  } catch (e) {
+    pDescription.textContent =
+      "Could not load prompts.json — open this file via http (not file://).";
+    console.error(e);
+  }
+}
+function renderPrompt() {
+  if (prompts.length === 0) return;
+  if (promptIndex < 0) promptIndex = 0;
+  if (promptIndex >= prompts.length) promptIndex = prompts.length - 1;
+  const p = prompts[promptIndex];
+  pContext.textContent = p.context;
+  pProgress.textContent = `${promptIndex + 1} / ${prompts.length}`;
+  pDescription.textContent = p.description;
+  pExpected.textContent = JSON.stringify(p.expected_parse, null, 2);
+  pTranscript.value = "";
+  pTranscriptDraft = "";
+  pStatus.textContent = "Idle.";
+}
+pStart.onclick = () => {
+  if (!isSpeechSupported) {
+    pStatus.textContent = "Web Speech not supported in this browser.";
+    return;
+  }
+  pTranscript.value = "";
+  pTranscriptDraft = "";
+  pRecognizer = makeRecognizer();
+  pRecognizer.onresult = (ev) => {
+    let interim = "";
+    let final = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) final += r[0].transcript;
+      else interim += r[0].transcript;
+    }
+    pTranscriptDraft = (pTranscriptDraft + final).trim();
+    pTranscript.value =
+      (pTranscriptDraft + " " + interim).trim();
+  };
+  pRecognizer.onend = () => {
+    pStart.disabled = false;
+    pStop.disabled = true;
+    pStatus.textContent = "Stopped. Edit if needed, then Save.";
+  };
+  pRecognizer.onerror = (ev) => {
+    pStatus.textContent = "Speech error: " + ev.error;
+  };
+  pRecognizer.start();
+  pStart.disabled = true;
+  pStop.disabled = false;
+  pStatus.innerHTML = '<span class="recording-dot"></span>Recording…';
+};
+pStop.onclick = () => {
+  if (pRecognizer) pRecognizer.stop();
+};
+pSave.onclick = async () => {
+  const transcript = pTranscript.value.trim();
+  if (!transcript) {
+    pStatus.textContent = "Empty transcript — record or type something first.";
+    return;
+  }
+  const p = prompts[promptIndex];
+  await dbAdd(STORE_SAVED, {
+    transcript,
+    context: p.context,
+    expected_parse: p.expected_parse,
+    wall_clock_ms: Date.now(),
+    mode: "prompted",
+    prompt_id: p.id,
+  });
+  promptIndex = Math.min(promptIndex + 1, prompts.length - 1);
+  renderPrompt();
+  refreshStats();
+};
+pSkip.onclick = () => {
+  promptIndex = Math.min(promptIndex + 1, prompts.length - 1);
+  renderPrompt();
+};
+pPrev.onclick = () => {
+  promptIndex = Math.max(promptIndex - 1, 0);
+  renderPrompt();
+};
+pNext.onclick = () => {
+  promptIndex = Math.min(promptIndex + 1, prompts.length - 1);
+  renderPrompt();
+};
+
+// ============================================================================
+// Mode B — Live narration
+// ============================================================================
+const liveStart = document.getElementById("live-start");
+const liveStop = document.getElementById("live-stop");
+const liveStatus = document.getElementById("live-status");
+const liveCount = document.getElementById("live-count");
+const liveList = document.getElementById("live-list");
+const reviewCard = document.getElementById("review-card");
+const reviewRowInfo = document.getElementById("review-row-info");
+const reviewTranscript = document.getElementById("review-transcript");
+const reviewEventGrid = document.getElementById("review-event");
+const reviewJersey = document.getElementById("review-jersey");
+const reviewNoJersey = document.getElementById("review-no-jersey");
+const reviewSideHome = document.getElementById("review-side-home");
+const reviewSideAway = document.getElementById("review-side-away");
+const reviewSave = document.getElementById("review-save");
+const reviewSkip = document.getElementById("review-skip");
+const reviewDelete = document.getElementById("review-delete");
+
+let liveRecognizer = null;
+let liveDraft = "";
+let liveCaptureStartedAt = 0;
+let pendingReviewRow = null;
+let reviewSelectedEvent = null;
+let reviewSide = "home";
+
+liveStart.onclick = () => {
+  if (!isSpeechSupported) {
+    liveStatus.textContent = "Web Speech not supported in this browser.";
+    return;
+  }
+  liveDraft = "";
+  liveCaptureStartedAt = Date.now();
+  liveRecognizer = makeRecognizer();
+  liveRecognizer.onresult = (ev) => {
+    let final = "";
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) final += r[0].transcript;
+    }
+    liveDraft = (liveDraft + " " + final).trim();
+    liveStatus.innerHTML =
+      '<span class="recording-dot"></span>Recording: <em>' +
+      escapeHtml(liveDraft) +
+      "</em>";
+  };
+  liveRecognizer.onend = async () => {
+    liveStart.disabled = false;
+    liveStop.disabled = true;
+    if (liveDraft.trim()) {
+      await dbAdd(STORE_LIVE, {
+        transcript: liveDraft.trim(),
+        wall_clock_ms: liveCaptureStartedAt,
+      });
+      await renderLiveList();
+      refreshStats();
+    }
+    liveStatus.textContent = "Idle.";
+  };
+  liveRecognizer.onerror = (ev) => {
+    liveStatus.textContent = "Speech error: " + ev.error;
+  };
+  liveRecognizer.start();
+  liveStart.disabled = true;
+  liveStop.disabled = false;
+};
+liveStop.onclick = () => {
+  if (liveRecognizer) liveRecognizer.stop();
+};
+
+async function renderLiveList() {
+  const rows = await dbAll(STORE_LIVE);
+  liveCount.textContent = rows.length;
+  liveList.innerHTML = "";
+  if (rows.length === 0) {
+    liveList.innerHTML =
+      '<div class="live-row" style="color:var(--muted)">No utterances yet — tap Start above.</div>';
+    reviewCard.style.display = "none";
+    pendingReviewRow = null;
+    return;
+  }
+  for (const r of rows) {
+    const div = document.createElement("div");
+    div.className = "live-row";
+    const ts = new Date(r.wall_clock_ms).toLocaleTimeString();
+    div.innerHTML =
+      '<span class="ts">' + ts + "</span><span>" + escapeHtml(r.transcript) + "</span>";
+    div.style.cursor = "pointer";
+    div.onclick = () => openReview(r);
+    liveList.appendChild(div);
+  }
+  // Auto-open first row for review if none in progress.
+  if (!pendingReviewRow) openReview(rows[0]);
+}
+
+function openReview(row) {
+  pendingReviewRow = row;
+  reviewCard.style.display = "block";
+  reviewRowInfo.textContent =
+    "Captured at " + new Date(row.wall_clock_ms).toLocaleTimeString();
+  reviewTranscript.textContent = row.transcript;
+  reviewJersey.value = "";
+  reviewNoJersey.checked = false;
+  reviewSide = "home";
+  reviewSideHome.setAttribute("aria-pressed", "true");
+  reviewSideAway.setAttribute("aria-pressed", "false");
+  reviewSelectedEvent = null;
+  for (const btn of reviewEventGrid.querySelectorAll("button")) {
+    btn.setAttribute("aria-pressed", "false");
+  }
+}
+
+reviewEventGrid.onclick = (ev) => {
+  const btn = ev.target.closest("button[data-event]");
+  if (!btn) return;
+  reviewSelectedEvent = btn.getAttribute("data-event");
+  for (const b of reviewEventGrid.querySelectorAll("button")) {
+    b.setAttribute(
+      "aria-pressed",
+      b === btn ? "true" : "false",
+    );
+  }
+};
+reviewSideHome.onclick = () => {
+  reviewSide = "home";
+  reviewSideHome.setAttribute("aria-pressed", "true");
+  reviewSideAway.setAttribute("aria-pressed", "false");
+};
+reviewSideAway.onclick = () => {
+  reviewSide = "away";
+  reviewSideHome.setAttribute("aria-pressed", "false");
+  reviewSideAway.setAttribute("aria-pressed", "true");
+};
+
+reviewSave.onclick = async () => {
+  if (!pendingReviewRow) return;
+  if (!reviewSelectedEvent) {
+    alert("Pick an event button (or 'No event' / 'Skip').");
+    return;
+  }
+  const expected_parse = buildExpectedParse({
+    eventChoice: reviewSelectedEvent,
+    jersey: reviewNoJersey.checked
+      ? null
+      : reviewJersey.value.trim() || null,
+    side: reviewSide,
+  });
+  await dbAdd(STORE_SAVED, {
+    transcript: pendingReviewRow.transcript,
+    context: "idle", // Mode B doesn't track context — labeller can edit later
+    expected_parse,
+    wall_clock_ms: pendingReviewRow.wall_clock_ms,
+    mode: "live",
+  });
+  await dbDelete(STORE_LIVE, pendingReviewRow.id);
+  pendingReviewRow = null;
+  await renderLiveList();
+  refreshStats();
+};
+reviewSkip.onclick = () => {
+  pendingReviewRow = null;
+  reviewCard.style.display = "none";
+};
+reviewDelete.onclick = async () => {
+  if (!pendingReviewRow) return;
+  if (!confirm("Delete this captured utterance? It won't appear in export.")) return;
+  await dbDelete(STORE_LIVE, pendingReviewRow.id);
+  pendingReviewRow = null;
+  await renderLiveList();
+  refreshStats();
+};
+
+function buildExpectedParse({ eventChoice, jersey, side }) {
+  if (eventChoice === "__no_event__") {
+    return { intent: "no_event" };
+  }
+  if (eventChoice === "__skip__") {
+    return { intent: "skip" };
+  }
+  const out = { event_type: eventChoice, player_jersey: jersey };
+  if (side === "away") {
+    out.metadata = { team_side: "away" };
+  }
+  return out;
+}
+
+// ============================================================================
+// Export
+// ============================================================================
+const exportStats = document.getElementById("export-stats");
+const exportDownload = document.getElementById("export-download");
+const exportClear = document.getElementById("export-clear");
+
+async function refreshExportStats() {
+  const saved = await dbAll(STORE_SAVED);
+  const promptedCount = saved.filter((r) => r.mode === "prompted").length;
+  const liveCount = saved.filter((r) => r.mode === "live").length;
+  exportStats.innerHTML =
+    "<strong>" +
+    saved.length +
+    "</strong> labelled rows total — " +
+    promptedCount +
+    " from Mode A (prompted), " +
+    liveCount +
+    " from Mode B (live narration).";
+}
+
+exportDownload.onclick = async () => {
+  const saved = await dbAll(STORE_SAVED);
+  if (saved.length === 0) {
+    alert("No saved rows to export.");
+    return;
+  }
+  const lines = saved.map((row) => {
+    const out = {
+      transcript: row.transcript,
+      context: row.context,
+      expected_parse: row.expected_parse,
+      wall_clock_ms: row.wall_clock_ms,
+      mode: row.mode,
+    };
+    if (row.prompt_id) out.prompt_id = row.prompt_id;
+    return JSON.stringify(out);
+  });
+  const blob = new Blob([lines.join("\n") + "\n"], {
+    type: "application/jsonl",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "voice_parse_eval.jsonl";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+exportClear.onclick = async () => {
+  if (!confirm("Clear ALL saved rows from this device? Export first if you want to keep them.")) return;
+  await dbClear(STORE_SAVED);
+  await dbClear(STORE_LIVE);
+  await refreshExportStats();
+  await refreshStats();
+  await renderLiveList();
+};
+
+// ============================================================================
+// Helpers
+// ============================================================================
+function escapeHtml(s) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// ============================================================================
+// Boot
+// ============================================================================
+loadPrompts();
+renderLiveList();
+refreshStats();
+</script>
+</body>
+</html>
