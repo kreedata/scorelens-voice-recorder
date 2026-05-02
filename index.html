@@ -73,6 +73,46 @@
       letter-spacing: 0.04em;
     }
     .description { font-size: 16px; margin: 8px 0 12px; line-height: 1.4; }
+    .howto {
+      background: #eef2ff;
+      border-left: 3px solid var(--indigo);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+    .howto h2 {
+      font-size: 13px;
+      margin: 0 0 8px;
+      color: var(--indigo-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .howto ol, .howto ul { margin: 4px 0 0; padding-left: 20px; }
+    .howto li { margin-bottom: 4px; }
+    .howto p { margin: 6px 0; }
+    .howto strong { color: var(--indigo-dark); }
+    .test-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .test-step .dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--border); flex-shrink: 0;
+    }
+    .test-step.pending .dot { background: var(--amber); animation: pulse 1s infinite; }
+    .test-step.ok .dot { background: var(--green); }
+    .test-step.fail .dot { background: var(--red); }
+    .test-step.ok { background: #f0fdf4; border-color: #bbf7d0; }
+    .test-step.fail { background: #fef2f2; border-color: #fecaca; }
+    .test-step .detail { color: var(--muted); font-size: 12px; margin-left: auto; font-family: ui-monospace, monospace; max-width: 60%; text-align: right; overflow-wrap: anywhere; }
     .expected {
       font-family: ui-monospace, SFMono-Regular, "Menlo", monospace;
       font-size: 12px;
@@ -197,13 +237,26 @@
   </header>
   <main>
     <div class="tabs" role="tablist">
-      <button id="tab-prompted" role="tab" aria-pressed="true">Mode A · Prompted</button>
-      <button id="tab-live" role="tab" aria-pressed="false">Mode B · Live narration</button>
+      <button id="tab-prompted" role="tab" aria-pressed="true">Practice with prompts</button>
+      <button id="tab-live" role="tab" aria-pressed="false">Capture a game</button>
+      <button id="tab-test" role="tab" aria-pressed="false">Quick test</button>
       <button id="tab-export" role="tab" aria-pressed="false">Export</button>
     </div>
 
-    <!-- ============ MODE A · PROMPTED ============ -->
+    <!-- ============ PRACTICE WITH PROMPTS (was Mode A) ============ -->
     <section id="panel-prompted">
+      <div class="howto">
+        <h2>How this tab works</h2>
+        <ol>
+          <li>The recorder shows you a basketball scenario below.</li>
+          <li>Tap <strong>Start</strong>, then speak how you'd narrate it as the scorer (e.g. <em>"kai for three"</em>).</li>
+          <li>Tap <strong>Stop</strong> when you're done speaking.</li>
+          <li>The transcript appears in the textarea — fix any words Web Speech got wrong.</li>
+          <li>Tap <strong>Save &amp; Next</strong> to commit and advance, or <strong>Skip</strong> to move on without saving.</li>
+        </ol>
+        <p><strong>When to use this:</strong> you don't have a game in front of you (couch, lunch break) and want to top up the corpus with the 50 prompts that cover edge cases real games might miss. Each prompt's expected parse is pre-defined — labelling is automatic.</p>
+      </div>
+
       <div class="card" id="prompt-card">
         <span class="pill" id="p-context">idle</span>
         <span class="pill" id="p-progress" style="margin-left:6px;background:#fef3c7;color:#92400e">1 / 50</span>
@@ -232,8 +285,27 @@
       </div>
     </section>
 
-    <!-- ============ MODE B · LIVE NARRATION ============ -->
+    <!-- ============ CAPTURE A GAME (was Mode B) ============ -->
     <section id="panel-live" class="hidden">
+      <div class="howto">
+        <h2>How this tab works</h2>
+        <p><strong>During the game</strong> (or while watching a basketball video):</p>
+        <ol>
+          <li>Tap <strong>Start utterance</strong> just before each play you want to capture.</li>
+          <li>Speak naturally as you'd narrate it (<em>"twenty-three drains it from deep"</em>).</li>
+          <li>Tap <strong>Stop</strong>. The utterance is saved with a timestamp into the <em>Captured</em> list below.</li>
+          <li>Repeat for every play you want in the corpus. Aim for 30–80 utterances per game.</li>
+        </ol>
+        <p><strong>After the game</strong> (label phase, ~10 min):</p>
+        <ol start="5">
+          <li>Scroll to the <em>Captured</em> list. The first row opens in the <em>Label expected parse</em> card automatically.</li>
+          <li>Tap an event button (<code>2PT make</code>, <code>AST</code>, etc.), enter the jersey, pick the side.</li>
+          <li>Tap <strong>Save &amp; next</strong> until every captured row is labelled.</li>
+          <li>When done, switch to <strong>Export</strong> to download the .jsonl.</li>
+        </ol>
+        <p><strong>When to use this:</strong> at a real game OR with a basketball video playing. Captures real speech patterns the prompted mode can't.</p>
+      </div>
+
       <div class="card">
         <p style="margin:0 0 10px;font-size:14px">
           Tap <strong>Start</strong> to capture the next utterance, then <strong>Stop</strong>.
@@ -307,15 +379,65 @@
       </div>
     </section>
 
+    <!-- ============ QUICK TEST (NEW) ============ -->
+    <section id="panel-test" class="hidden">
+      <div class="howto">
+        <h2>What this does</h2>
+        <p>Verifies the recorder is working end-to-end in about 30 seconds. Use this <strong>before a game</strong> to confirm everything works on this device.</p>
+        <p>The four checks below run in order. Nothing is permanently saved — the test row is deleted at the end so your real corpus stays clean.</p>
+      </div>
+
+      <div class="card">
+        <div class="actions" style="margin-top:0">
+          <button class="primary" id="test-run">Run quick test</button>
+          <button class="ghost" id="test-reset">Reset</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 10px;font-size:14px">Status</h3>
+        <div class="test-step" id="test-step-mic">
+          <div class="dot"></div>
+          <div>1. Mic permission</div>
+          <div class="detail" id="test-detail-mic">not started</div>
+        </div>
+        <div class="test-step" id="test-step-stt">
+          <div class="dot"></div>
+          <div>2. Speech-to-text (say <em>"hello recorder"</em>)</div>
+          <div class="detail" id="test-detail-stt">not started</div>
+        </div>
+        <div class="test-step" id="test-step-idb">
+          <div class="dot"></div>
+          <div>3. IndexedDB write</div>
+          <div class="detail" id="test-detail-idb">not started</div>
+        </div>
+        <div class="test-step" id="test-step-export">
+          <div class="dot"></div>
+          <div>4. Export shape valid</div>
+          <div class="detail" id="test-detail-export">not started</div>
+        </div>
+        <p id="test-summary" style="margin:12px 0 0;font-size:14px;color:var(--muted)">Tap <strong>Run quick test</strong> to begin.</p>
+      </div>
+    </section>
+
     <!-- ============ EXPORT ============ -->
     <section id="panel-export" class="hidden">
+      <div class="howto">
+        <h2>How this tab works</h2>
+        <ol>
+          <li>Tap <strong>Download .jsonl</strong> — your phone saves the file to <em>Files → Downloads</em>.</li>
+          <li><strong>Rename it now</strong> in the Files app to something dated like <code>voice_2026-05-15_vs-cougars.jsonl</code> (long-press → Rename). Otherwise the next game's download collides.</li>
+          <li>AirDrop / email / iCloud the file to your laptop within the day. iOS Safari can evict IndexedDB after ~7 days of no PWA visits.</li>
+          <li>Tap <strong>Clear all saved rows</strong> so the next game starts clean.</li>
+        </ol>
+      </div>
       <div class="card">
         <h3 style="margin-top:0">Export to JSONL</h3>
         <p style="font-size:14px">
           Downloads <code>voice_parse_eval.jsonl</code> with all saved
-          rows from both Mode A and Mode B (labelled rows only). Commit
-          the file to <code>docs/voice_parse_eval.jsonl</code> in the
-          scorelens repo.
+          labelled rows (from both Practice and Capture modes). Move the
+          file into your project's eval-data directory and commit it
+          through your normal flow.
         </p>
         <div id="export-stats" class="stats" style="margin-bottom:12px"></div>
         <div class="actions">
@@ -334,7 +456,7 @@
   },
   "wall_clock_ms": 1719000000000,
   "mode": "prompted" | "live",
-  "prompt_id": "p001"            // present for Mode A only
+  "prompt_id": "p001"            // present for Practice rows only
 }</pre>
       </div>
     </section>
@@ -345,7 +467,7 @@
       <span class="badge" id="mic-badge">Mic: unknown</span>
       <span class="badge green" id="saved-badge" style="margin-left:6px">Saved: 0</span>
     </div>
-    <div class="stats" id="footer-hint">Ready.</div>
+    <div class="stats" id="footer-hint">New here? Tap <strong>Quick test</strong> first to verify the recorder works on this device.</div>
   </div>
 
 <script>
@@ -440,15 +562,18 @@ function makeRecognizer() {
 // ============================================================================
 const tabPrompted = document.getElementById("tab-prompted");
 const tabLive = document.getElementById("tab-live");
+const tabTest = document.getElementById("tab-test");
 const tabExport = document.getElementById("tab-export");
 const panelPrompted = document.getElementById("panel-prompted");
 const panelLive = document.getElementById("panel-live");
+const panelTest = document.getElementById("panel-test");
 const panelExport = document.getElementById("panel-export");
 
 function activateTab(name) {
   for (const [tab, panel] of [
     [tabPrompted, panelPrompted],
     [tabLive, panelLive],
+    [tabTest, panelTest],
     [tabExport, panelExport],
   ]) {
     const isActive = tab.id === "tab-" + name;
@@ -459,6 +584,7 @@ function activateTab(name) {
 }
 tabPrompted.onclick = () => activateTab("prompted");
 tabLive.onclick = () => activateTab("live");
+tabTest.onclick = () => activateTab("test");
 tabExport.onclick = () => activateTab("export");
 
 // ============================================================================
@@ -790,9 +916,9 @@ async function refreshExportStats() {
     saved.length +
     "</strong> labelled rows total — " +
     promptedCount +
-    " from Mode A (prompted), " +
+    " from Practice (prompted), " +
     liveCount +
-    " from Mode B (live narration).";
+    " from Capture (live game).";
 }
 
 exportDownload.onclick = async () => {
@@ -844,11 +970,172 @@ function escapeHtml(s) {
 }
 
 // ============================================================================
+// Quick test — verifies mic + speech-to-text + IDB write + export shape.
+// Cleans up the test row so the real corpus stays untouched.
+// ============================================================================
+const testRun = document.getElementById("test-run");
+const testReset = document.getElementById("test-reset");
+const testSummary = document.getElementById("test-summary");
+const testSteps = {
+  mic: document.getElementById("test-step-mic"),
+  stt: document.getElementById("test-step-stt"),
+  idb: document.getElementById("test-step-idb"),
+  export: document.getElementById("test-step-export"),
+};
+const testDetails = {
+  mic: document.getElementById("test-detail-mic"),
+  stt: document.getElementById("test-detail-stt"),
+  idb: document.getElementById("test-detail-idb"),
+  export: document.getElementById("test-detail-export"),
+};
+const TEST_STORE = STORE_LIVE;
+
+function setStep(key, state, detail) {
+  const el = testSteps[key];
+  el.classList.remove("pending", "ok", "fail");
+  if (state) el.classList.add(state);
+  testDetails[key].textContent = detail || "";
+}
+function resetTest() {
+  for (const k of Object.keys(testSteps)) setStep(k, "", "not started");
+  testSummary.innerHTML = "Tap <strong>Run quick test</strong> to begin.";
+}
+testReset.onclick = resetTest;
+
+testRun.onclick = async () => {
+  testRun.disabled = true;
+  resetTest();
+
+  // Step 1 — Mic permission.
+  setStep("mic", "pending", "requesting…");
+  if (!isSpeechSupported) {
+    setStep("mic", "fail", "Web Speech not supported");
+    testSummary.textContent =
+      "This browser doesn't expose SpeechRecognition. Use Chrome or iOS Safari.";
+    testRun.disabled = false;
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+    setStep("mic", "ok", "granted");
+  } catch (e) {
+    setStep("mic", "fail", e && e.name ? e.name : "denied");
+    testSummary.textContent =
+      "Microphone permission was denied. Enable it in your browser settings, then re-run.";
+    testRun.disabled = false;
+    return;
+  }
+
+  // Step 2 — Speech-to-text.
+  setStep("stt", "pending", "say something now (5s)…");
+  let transcript = "";
+  let finalSeen = false;
+  const r = makeRecognizer();
+  let timedOut = false;
+  await new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try { r.stop(); } catch (_) {}
+    }, 5000);
+    r.onresult = (ev) => {
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const result = ev.results[i];
+        if (result.isFinal) {
+          transcript = (transcript + result[0].transcript).trim();
+          finalSeen = true;
+        }
+      }
+    };
+    r.onerror = () => {};
+    r.onend = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    try { r.start(); } catch (_) { resolve(); }
+  });
+
+  if (!finalSeen || transcript.length === 0) {
+    setStep(
+      "stt",
+      "fail",
+      timedOut ? "no speech in 5s" : "no transcript captured",
+    );
+    testSummary.textContent =
+      "Speech-to-text didn't return a transcript. Try again — speak clearly within 5 seconds of the step turning amber.";
+    testRun.disabled = false;
+    return;
+  }
+  setStep("stt", "ok", `"${transcript.slice(0, 32)}"`);
+
+  // Step 3 — IDB write.
+  setStep("idb", "pending", "writing…");
+  let testId = null;
+  try {
+    testId = await dbAdd(TEST_STORE, {
+      transcript: "[QUICK TEST] " + transcript,
+      wall_clock_ms: Date.now(),
+      __test_row: true,
+    });
+    setStep("idb", "ok", "row #" + testId);
+  } catch (e) {
+    setStep("idb", "fail", e && e.message ? e.message : "write failed");
+    testSummary.textContent =
+      "IndexedDB write failed. The browser may be in private mode (Safari) or storage is full.";
+    testRun.disabled = false;
+    return;
+  }
+
+  // Step 4 — Export shape: read back, format as JSONL, validate JSON parse.
+  setStep("export", "pending", "checking…");
+  try {
+    const all = await dbAll(TEST_STORE);
+    const ours = all.find((x) => x.id === testId);
+    if (!ours) throw new Error("test row missing on read-back");
+    const sample = {
+      transcript: ours.transcript,
+      context: "idle",
+      expected_parse: { intent: "no_event" },
+      wall_clock_ms: ours.wall_clock_ms,
+      mode: "test",
+    };
+    const line = JSON.stringify(sample);
+    JSON.parse(line); // round-trip must succeed
+    setStep("export", "ok", "JSONL valid");
+  } catch (e) {
+    setStep("export", "fail", e && e.message ? e.message : "shape invalid");
+    testSummary.textContent =
+      "Export shape check failed. Read-back from IDB was malformed.";
+    testRun.disabled = false;
+    return;
+  }
+
+  // Cleanup: remove the test row so it doesn't pollute Capture mode.
+  try {
+    if (testId !== null) await dbDelete(TEST_STORE, testId);
+    renderLiveList();
+    refreshStats();
+  } catch (_) {
+    // Non-fatal — surface in the summary if cleanup fails so the
+    // user can manually delete.
+    testSummary.innerHTML =
+      "All checks passed, but cleanup of the test row failed — open the <strong>Capture a game</strong> tab and delete the row tagged <em>[QUICK TEST]</em>.";
+    testRun.disabled = false;
+    return;
+  }
+
+  testSummary.innerHTML =
+    "<strong style='color:var(--green)'>All systems working.</strong> The recorder is ready — switch to <strong>Capture a game</strong> when the game starts, or <strong>Practice with prompts</strong> for top-up data.";
+  testRun.disabled = false;
+};
+
+// ============================================================================
 // Boot
 // ============================================================================
 loadPrompts();
 renderLiveList();
 refreshStats();
+resetTest();
 </script>
 </body>
 </html>
