@@ -166,6 +166,77 @@
       animation: pulse 1s infinite;
     }
     @keyframes pulse { 50% { opacity: 0.3; } }
+    .big-toggle {
+      width: 100%;
+      min-height: 96px;
+      border-radius: 18px;
+      border: 0;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: var(--indigo);
+      color: white;
+      transition: background 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .big-toggle:active { transform: scale(0.99); }
+    .big-toggle[aria-pressed="true"] {
+      background: var(--red);
+      animation: rec-bg 1.2s infinite;
+    }
+    @keyframes rec-bg {
+      50% { background: #b91c1c; }
+    }
+    .big-toggle .dot-large {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: white; opacity: 0.85;
+      flex-shrink: 0;
+    }
+    .big-toggle[aria-pressed="true"] .dot-large {
+      background: white;
+      animation: pulse 1s infinite;
+    }
+    button.ghost.mini {
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: 999px;
+    }
+    button.ghost.mini[aria-pressed="true"] {
+      background: var(--indigo);
+      color: white;
+      border-color: var(--indigo);
+    }
+    .modal-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    .modal {
+      background: white;
+      border-radius: 18px;
+      padding: 18px;
+      max-width: 540px;
+      width: calc(100% - 32px);
+      max-height: 80vh;
+      overflow: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .modal h2 { margin: 0 0 8px; font-size: 17px; }
+    .modal textarea {
+      width: 100%;
+      min-height: 200px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 10px;
+      font-family: ui-monospace, monospace;
+      font-size: 12px;
+      resize: vertical;
+    }
     .live-list {
       max-height: 360px;
       overflow-y: auto;
@@ -307,23 +378,38 @@
       </div>
 
       <div class="card">
-        <p style="margin:0 0 10px;font-size:14px">
-          Tap <strong>Start</strong> to capture the next utterance, then <strong>Stop</strong>.
-          Each utterance is timestamped and saved with its transcript.
-          When the game ends, switch to the <em>Review</em> section below to label the expected parse for each.
-        </p>
-        <div id="live-status" class="stats" style="margin-bottom:8px">Idle.</div>
-        <div class="actions">
-          <button class="primary" id="live-start">Start utterance</button>
-          <button class="primary" id="live-stop" disabled>Stop</button>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+          <label style="font-size:13px;color:var(--muted)">Game tag:</label>
+          <input type="text" id="live-game-tag" placeholder="e.g. 2026-05-15_vs-cougars" style="flex:1;min-width:160px;width:auto;text-align:left" />
         </div>
+        <div id="live-status" class="stats" style="margin-bottom:10px">Idle. Tap the big button to capture an utterance.</div>
+        <button class="big-toggle" id="live-toggle" aria-pressed="false">
+          <span class="dot-large"></span>
+          <span id="live-toggle-label">Tap to record · utterance 1</span>
+        </button>
+        <p style="font-size:12px;color:var(--muted);margin:8px 0 0;text-align:center">One tap to start, one tap to stop. Each utterance saves with a timestamp.</p>
       </div>
 
       <div class="card">
-        <h3 style="margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted)">Captured (<span id="live-count">0</span>)</h3>
-        <div class="live-list" id="live-list">
-          <div class="live-row" style="color:var(--muted)">No utterances yet — tap Start above.</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap">
+          <h3 style="margin:0;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted)">Captured (<span id="live-count">0</span>)</h3>
+          <div style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)">
+            <span>Order:</span>
+            <button class="ghost mini" id="live-order-newest" aria-pressed="true">Newest first</button>
+            <button class="ghost mini" id="live-order-oldest" aria-pressed="false">Oldest first</button>
+          </div>
         </div>
+        <div class="live-list" id="live-list">
+          <div class="live-row" style="color:var(--muted)">No utterances yet — tap the big button above.</div>
+        </div>
+        <div class="actions" style="margin-top:10px">
+          <button class="ghost" id="live-save-raw">Save raw bundle (.jsonl)</button>
+          <button class="ghost" id="live-import">Import bundle…</button>
+        </div>
+        <p style="font-size:12px;color:var(--muted);margin:6px 0 0">
+          <strong>Save raw</strong> downloads the unlabelled queue so you can offload between back-to-back games and label later.
+          <strong>Import</strong> loads a previously-saved raw bundle back into the queue.
+        </p>
       </div>
 
       <div class="card" id="review-card" style="display:none">
@@ -371,11 +457,22 @@
           </div>
         </div>
 
+        <div class="review-section" id="review-multi-section" style="display:none">
+          <h3>Events queued for this utterance</h3>
+          <div id="review-multi-list" style="display:flex;flex-direction:column;gap:6px;margin-top:6px"></div>
+        </div>
+
         <div class="actions" style="margin-top:14px">
           <button class="primary" id="review-save">Save &amp; next</button>
+          <button class="ghost" id="review-add-event">+ Add another event from this utterance</button>
           <button class="ghost" id="review-skip">Skip this row</button>
           <button class="danger" id="review-delete">Delete</button>
         </div>
+        <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
+          One utterance often contains multiple events ("two by 8 rebound by opposite"). Tap event + jersey + side, then
+          <strong>+ Add another event</strong> to queue more before saving. <strong>Save &amp; next</strong> writes them all as
+          a single multi-event row.
+        </p>
       </div>
     </section>
 
@@ -714,13 +811,38 @@ pNext.onclick = () => {
 };
 
 // ============================================================================
-// Mode B — Live narration
+// Capture a game (was Mode B)
 // ============================================================================
-const liveStart = document.getElementById("live-start");
-const liveStop = document.getElementById("live-stop");
+const liveToggle = document.getElementById("live-toggle");
+const liveToggleLabel = document.getElementById("live-toggle-label");
 const liveStatus = document.getElementById("live-status");
 const liveCount = document.getElementById("live-count");
 const liveList = document.getElementById("live-list");
+const liveGameTag = document.getElementById("live-game-tag");
+const liveOrderNewest = document.getElementById("live-order-newest");
+const liveOrderOldest = document.getElementById("live-order-oldest");
+const liveSaveRaw = document.getElementById("live-save-raw");
+const liveImport = document.getElementById("live-import");
+
+let liveListOrder = "newest"; // 'newest' or 'oldest'
+liveOrderNewest.onclick = () => {
+  liveListOrder = "newest";
+  liveOrderNewest.setAttribute("aria-pressed", "true");
+  liveOrderOldest.setAttribute("aria-pressed", "false");
+  renderLiveList();
+};
+liveOrderOldest.onclick = () => {
+  liveListOrder = "oldest";
+  liveOrderNewest.setAttribute("aria-pressed", "false");
+  liveOrderOldest.setAttribute("aria-pressed", "true");
+  renderLiveList();
+};
+
+// Persist game tag across reloads.
+liveGameTag.value = localStorage.getItem("voice_recorder_game_tag") || "";
+liveGameTag.oninput = () => {
+  localStorage.setItem("voice_recorder_game_tag", liveGameTag.value.trim());
+};
 const reviewCard = document.getElementById("review-card");
 const reviewRowInfo = document.getElementById("review-row-info");
 const reviewTranscript = document.getElementById("review-transcript");
@@ -736,13 +858,26 @@ const reviewDelete = document.getElementById("review-delete");
 let liveRecognizer = null;
 let liveDraft = "";
 let liveCaptureStartedAt = 0;
+let liveIsRecording = false;
 let pendingReviewRow = null;
 let reviewSelectedEvent = null;
 let reviewSide = "home";
 
-liveStart.onclick = () => {
+function setToggleState(recording, nextNum) {
+  liveIsRecording = recording;
+  liveToggle.setAttribute("aria-pressed", recording ? "true" : "false");
+  liveToggleLabel.textContent = recording
+    ? "Recording — tap to stop"
+    : `Tap to record · utterance ${nextNum}`;
+}
+
+liveToggle.onclick = () => {
   if (!isSpeechSupported) {
     liveStatus.textContent = "Web Speech not supported in this browser.";
+    return;
+  }
+  if (liveIsRecording) {
+    if (liveRecognizer) liveRecognizer.stop();
     return;
   }
   liveDraft = "";
@@ -761,27 +896,25 @@ liveStart.onclick = () => {
       "</em>";
   };
   liveRecognizer.onend = async () => {
-    liveStart.disabled = false;
-    liveStop.disabled = true;
     if (liveDraft.trim()) {
       await dbAdd(STORE_LIVE, {
         transcript: liveDraft.trim(),
         wall_clock_ms: liveCaptureStartedAt,
+        game: (liveGameTag.value || "").trim() || null,
       });
       await renderLiveList();
       refreshStats();
     }
-    liveStatus.textContent = "Idle.";
+    const total = (await dbAll(STORE_LIVE)).length;
+    setToggleState(false, total + 1);
+    liveStatus.textContent = "Idle. Tap the big button to capture an utterance.";
   };
   liveRecognizer.onerror = (ev) => {
     liveStatus.textContent = "Speech error: " + ev.error;
+    setToggleState(false, 1);
   };
   liveRecognizer.start();
-  liveStart.disabled = true;
-  liveStop.disabled = false;
-};
-liveStop.onclick = () => {
-  if (liveRecognizer) liveRecognizer.stop();
+  setToggleState(true, 0);
 };
 
 async function renderLiveList() {
@@ -790,31 +923,69 @@ async function renderLiveList() {
   liveList.innerHTML = "";
   if (rows.length === 0) {
     liveList.innerHTML =
-      '<div class="live-row" style="color:var(--muted)">No utterances yet — tap Start above.</div>';
+      '<div class="live-row" style="color:var(--muted)">No utterances yet — tap the big button above.</div>';
     reviewCard.style.display = "none";
     pendingReviewRow = null;
     return;
   }
-  for (const r of rows) {
+  // Sort newest-first (default) or oldest-first per the toggle.
+  const sorted = rows.slice().sort((a, b) =>
+    liveListOrder === "newest"
+      ? b.wall_clock_ms - a.wall_clock_ms
+      : a.wall_clock_ms - b.wall_clock_ms,
+  );
+  for (const r of sorted) {
     const div = document.createElement("div");
     div.className = "live-row";
     const ts = new Date(r.wall_clock_ms).toLocaleTimeString();
+    const tag = r.game ? `<span class="ts" style="color:var(--indigo-dark);min-width:0;margin-left:4px">[${escapeHtml(r.game)}]</span>` : "";
     div.innerHTML =
-      '<span class="ts">' + ts + "</span><span>" + escapeHtml(r.transcript) + "</span>";
+      '<span class="ts">' + ts + "</span><span>" + escapeHtml(r.transcript) + "</span>" + tag;
     div.style.cursor = "pointer";
     div.onclick = () => openReview(r);
     liveList.appendChild(div);
   }
-  // Auto-open first row for review if none in progress.
-  if (!pendingReviewRow) openReview(rows[0]);
+  // Auto-open the OLDEST row for review (so labelling proceeds in
+  // chronological order regardless of how the list is displayed).
+  if (!pendingReviewRow) {
+    const chrono = rows.slice().sort((a, b) => a.wall_clock_ms - b.wall_clock_ms);
+    openReview(chrono[0]);
+  }
 }
 
-function openReview(row) {
-  pendingReviewRow = row;
-  reviewCard.style.display = "block";
-  reviewRowInfo.textContent =
-    "Captured at " + new Date(row.wall_clock_ms).toLocaleTimeString();
-  reviewTranscript.textContent = row.transcript;
+// Queued events for the currently-open utterance (multi-event support).
+let multiEventQueue = [];
+const reviewMultiSection = document.getElementById("review-multi-section");
+const reviewMultiList = document.getElementById("review-multi-list");
+const reviewAddEvent = document.getElementById("review-add-event");
+
+function renderMultiList() {
+  if (multiEventQueue.length === 0) {
+    reviewMultiSection.style.display = "none";
+    reviewMultiList.innerHTML = "";
+    return;
+  }
+  reviewMultiSection.style.display = "block";
+  reviewMultiList.innerHTML = "";
+  multiEventQueue.forEach((e, idx) => {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px";
+    const j = e.player_jersey ? `#${e.player_jersey}` : "(no jersey)";
+    const meta = e.metadata && e.metadata.team_side ? ` · ${e.metadata.team_side}` : "";
+    row.innerHTML = `<span style="flex:1">${idx + 1}. ${escapeHtml(e.event_type)} · ${escapeHtml(j)}${escapeHtml(meta)}</span>`;
+    const x = document.createElement("button");
+    x.className = "ghost mini";
+    x.textContent = "Remove";
+    x.onclick = () => {
+      multiEventQueue.splice(idx, 1);
+      renderMultiList();
+    };
+    row.appendChild(x);
+    reviewMultiList.appendChild(row);
+  });
+}
+
+function clearReviewSelection() {
   reviewJersey.value = "";
   reviewNoJersey.checked = false;
   reviewSide = "home";
@@ -825,6 +996,42 @@ function openReview(row) {
     btn.setAttribute("aria-pressed", "false");
   }
 }
+
+function openReview(row) {
+  pendingReviewRow = row;
+  multiEventQueue = [];
+  reviewCard.style.display = "block";
+  const ts = new Date(row.wall_clock_ms).toLocaleTimeString();
+  const tag = row.game ? ` · [${row.game}]` : "";
+  reviewRowInfo.textContent = "Captured at " + ts + tag;
+  reviewTranscript.textContent = row.transcript;
+  clearReviewSelection();
+  renderMultiList();
+}
+
+reviewAddEvent.onclick = () => {
+  if (!reviewSelectedEvent) {
+    alert("Pick an event first, then tap Add another.");
+    return;
+  }
+  if (
+    reviewSelectedEvent === "__no_event__" ||
+    reviewSelectedEvent === "__skip__"
+  ) {
+    alert("'No event' / 'Skip' can't be combined with other events.");
+    return;
+  }
+  const item = buildSingleEvent({
+    eventChoice: reviewSelectedEvent,
+    jersey: reviewNoJersey.checked
+      ? null
+      : reviewJersey.value.trim() || null,
+    side: reviewSide,
+  });
+  if (item) multiEventQueue.push(item);
+  clearReviewSelection();
+  renderMultiList();
+};
 
 reviewEventGrid.onclick = (ev) => {
   const btn = ev.target.closest("button[data-event]");
@@ -850,26 +1057,43 @@ reviewSideAway.onclick = () => {
 
 reviewSave.onclick = async () => {
   if (!pendingReviewRow) return;
-  if (!reviewSelectedEvent) {
-    alert("Pick an event button (or 'No event' / 'Skip').");
-    return;
+  // Determine final expected_parse:
+  //   * Multi-queue + no current → use the queue as a multi-event row.
+  //   * Multi-queue + current selected → append current then use multi.
+  //   * Just current selection → use single (or intent for no_event/skip).
+  let expected_parse;
+  if (multiEventQueue.length > 0) {
+    if (reviewSelectedEvent && reviewSelectedEvent !== "__no_event__" && reviewSelectedEvent !== "__skip__") {
+      const current = buildSingleEvent({
+        eventChoice: reviewSelectedEvent,
+        jersey: reviewNoJersey.checked ? null : reviewJersey.value.trim() || null,
+        side: reviewSide,
+      });
+      if (current) multiEventQueue.push(current);
+    }
+    expected_parse = multiEventQueue.length === 1 ? multiEventQueue[0] : multiEventQueue.slice();
+  } else {
+    if (!reviewSelectedEvent) {
+      alert("Pick an event button (or 'No event' / 'Skip').");
+      return;
+    }
+    expected_parse = buildExpectedParse({
+      eventChoice: reviewSelectedEvent,
+      jersey: reviewNoJersey.checked ? null : reviewJersey.value.trim() || null,
+      side: reviewSide,
+    });
   }
-  const expected_parse = buildExpectedParse({
-    eventChoice: reviewSelectedEvent,
-    jersey: reviewNoJersey.checked
-      ? null
-      : reviewJersey.value.trim() || null,
-    side: reviewSide,
-  });
   await dbAdd(STORE_SAVED, {
     transcript: pendingReviewRow.transcript,
-    context: "idle", // Mode B doesn't track context — labeller can edit later
+    context: "idle", // Capture rows don't track context — labeller can edit later
     expected_parse,
     wall_clock_ms: pendingReviewRow.wall_clock_ms,
     mode: "live",
+    game: pendingReviewRow.game ?? null,
   });
   await dbDelete(STORE_LIVE, pendingReviewRow.id);
   pendingReviewRow = null;
+  multiEventQueue = [];
   await renderLiveList();
   refreshStats();
 };
@@ -893,6 +1117,12 @@ function buildExpectedParse({ eventChoice, jersey, side }) {
   if (eventChoice === "__skip__") {
     return { intent: "skip" };
   }
+  return buildSingleEvent({ eventChoice, jersey, side });
+}
+// Like buildExpectedParse but ONLY for the multi-event-queue path —
+// rejects the intent shapes (no_event / skip) which can't compose.
+function buildSingleEvent({ eventChoice, jersey, side }) {
+  if (eventChoice === "__no_event__" || eventChoice === "__skip__") return null;
   const out = { event_type: eventChoice, player_jersey: jersey };
   if (side === "away") {
     out.metadata = { team_side: "away" };
@@ -1127,6 +1357,108 @@ testRun.onclick = async () => {
   testSummary.innerHTML =
     "<strong style='color:var(--green)'>All systems working.</strong> The recorder is ready — switch to <strong>Capture a game</strong> when the game starts, or <strong>Practice with prompts</strong> for top-up data.";
   testRun.disabled = false;
+};
+
+// ============================================================================
+// Save raw bundle + Import (Capture tab)
+// ============================================================================
+liveSaveRaw.onclick = async () => {
+  const rows = await dbAll(STORE_LIVE);
+  if (rows.length === 0) {
+    alert("No captured rows to save.");
+    return;
+  }
+  const lines = rows.map((r) =>
+    JSON.stringify({
+      transcript: r.transcript,
+      wall_clock_ms: r.wall_clock_ms,
+      game: r.game ?? null,
+    }),
+  );
+  const tag = (liveGameTag.value || "raw").trim().replace(/[^A-Za-z0-9._-]/g, "_") || "raw";
+  const blob = new Blob([lines.join("\n") + "\n"], { type: "application/x-ndjson" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `voice_capture_${tag}.jsonl`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
+};
+
+liveImport.onclick = () => {
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.innerHTML = `
+    <div class="modal" role="dialog" aria-label="Import bundle">
+      <h2>Import a raw bundle</h2>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 8px">
+        Paste JSONL below (one captured row per line) <strong>OR</strong> pick a .jsonl file.
+        Imported rows append to the current Captured queue. Existing rows are not removed.
+      </p>
+      <input type="file" id="import-file" accept=".jsonl,.json,application/json,application/x-ndjson" style="margin-bottom:10px" />
+      <textarea id="import-textarea" placeholder='{"transcript":"two by abby","wall_clock_ms":1746318181000,"game":"2026-05-03_g1"}'></textarea>
+      <div class="actions" style="margin-top:12px">
+        <button class="primary" id="import-confirm">Import</button>
+        <button class="ghost" id="import-cancel">Cancel</button>
+      </div>
+      <p id="import-hint" style="font-size:12px;color:var(--muted);margin:8px 0 0"></p>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  const fileInput = document.getElementById("import-file");
+  const textArea = document.getElementById("import-textarea");
+  const hint = document.getElementById("import-hint");
+  const confirm = document.getElementById("import-confirm");
+  const cancel = document.getElementById("import-cancel");
+  fileInput.onchange = async () => {
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) return;
+    textArea.value = await f.text();
+    hint.textContent = `Loaded ${f.name} (${f.size} bytes)`;
+  };
+  cancel.onclick = () => document.body.removeChild(backdrop);
+  confirm.onclick = async () => {
+    const text = textArea.value.trim();
+    if (!text) {
+      hint.textContent = "Nothing to import.";
+      return;
+    }
+    let parsed = [];
+    let errors = 0;
+    for (const line of text.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t) continue;
+      try {
+        const obj = JSON.parse(t);
+        if (typeof obj.transcript !== "string" || typeof obj.wall_clock_ms !== "number") {
+          errors++;
+          continue;
+        }
+        parsed.push({
+          transcript: obj.transcript,
+          wall_clock_ms: obj.wall_clock_ms,
+          game: typeof obj.game === "string" ? obj.game : null,
+        });
+      } catch (_) {
+        errors++;
+      }
+    }
+    if (parsed.length === 0) {
+      hint.textContent = `No valid rows found (${errors} parse errors).`;
+      return;
+    }
+    confirm.disabled = true;
+    confirm.textContent = "Importing…";
+    for (const row of parsed) await dbAdd(STORE_LIVE, row);
+    await renderLiveList();
+    refreshStats();
+    document.body.removeChild(backdrop);
+    alert(`Imported ${parsed.length} rows${errors ? ` (${errors} skipped)` : ""}. Switch to Capture a game tab — they're now in the queue, ready to label.`);
+  };
 };
 
 // ============================================================================
