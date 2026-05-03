@@ -369,8 +369,12 @@
         </ol>
         <p><strong>After the game</strong> (label phase, ~10 min):</p>
         <ol start="5">
-          <li>Scroll to the <em>Captured</em> list. The first row opens in the <em>Label expected parse</em> card automatically.</li>
-          <li>Tap an event button (<code>2PT make</code>, <code>AST</code>, etc.), enter the jersey, pick the side.</li>
+          <li>Scroll to the <em>Captured</em> list. The OLDEST row opens in the <em>Label expected parse</em> card automatically (regardless of list display order).</li>
+          <li>If Web Speech misheard a word ("Wyatt" instead of "white"), <strong>edit the transcript</strong> in the yellow box. The original ASR is preserved separately for audit.</li>
+          <li>Tap an event button (<code>2PT make</code>, <code>AST</code>, <code>Tip-off</code>, etc.), enter the jersey, pick the side.</li>
+          <li>For utterances with multiple events ("steal by 8 two point made by 8"), tap <strong>+ Add another event</strong> to queue more before saving.</li>
+          <li>If an utterance was split across timestamps ("two point made by" + "Kate"), <strong>check the boxes</strong> on the rows in the Captured list and tap <strong>Merge selected</strong> to join them into one row.</li>
+          <li>For utterances too garbled to label, pick <strong>Discard (low quality)</strong> — better than guessing and poisoning the training set.</li>
           <li>Tap <strong>Save &amp; next</strong> until every captured row is labelled.</li>
           <li>When done, switch to <strong>Export</strong> to download the .jsonl.</li>
         </ol>
@@ -402,12 +406,14 @@
         <div class="live-list" id="live-list">
           <div class="live-row" style="color:var(--muted)">No utterances yet — tap the big button above.</div>
         </div>
-        <div class="actions" style="margin-top:10px">
+        <div class="actions" style="margin-top:10px;flex-wrap:wrap">
+          <button class="primary" id="live-merge" disabled>Merge selected (0)</button>
           <button class="ghost" id="live-save-raw">Save raw bundle (.jsonl)</button>
           <button class="ghost" id="live-import">Import bundle…</button>
         </div>
         <p style="font-size:12px;color:var(--muted);margin:6px 0 0">
-          <strong>Save raw</strong> downloads the unlabelled queue so you can offload between back-to-back games and label later.
+          <strong>Merge selected</strong> joins 2+ checked rows into one (concatenates transcripts with " · ", keeps the earliest timestamp). Use when one event got split across multiple captures (e.g. "two point made by" + "Kate" → one row).
+          <br /><strong>Save raw</strong> downloads the unlabelled queue so you can offload between back-to-back games and label later.
           <strong>Import</strong> loads a previously-saved raw bundle back into the queue.
         </p>
       </div>
@@ -415,7 +421,13 @@
       <div class="card" id="review-card" style="display:none">
         <h3 style="margin:0 0 8px;font-size:14px">Label expected parse</h3>
         <div id="review-row-info" class="stats" style="margin-bottom:8px"></div>
-        <div class="transcript" id="review-transcript" style="background:#f9fafb;cursor:default" contenteditable="false"></div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">
+          What you actually said (edit if Web Speech misheard a word — e.g. "Wyatt" → "white"; the original raw transcript is preserved separately for audit):
+        </div>
+        <textarea id="review-transcript" class="transcript" style="min-height:60px;background:#fffbeb;border-color:#fcd34d"></textarea>
+        <div id="review-original-row" style="font-size:11px;color:var(--muted);margin:4px 0 8px;display:none">
+          Original ASR: <em id="review-original"></em>
+        </div>
 
         <div class="review-section">
           <h3>Event</h3>
@@ -436,8 +448,13 @@
             <button data-event="SUB_IN">SUB in</button>
             <button data-event="SUB_OUT">SUB out</button>
             <button data-event="TIMEOUT">TIMEOUT</button>
+            <button data-event="JUMP_BALL">Tip-off / jump ball</button>
+            <button data-event="OUT_OF_BOUNDS">Out of bounds</button>
+            <button data-event="PERIOD_START">Period start</button>
+            <button data-event="PERIOD_END">Period end</button>
             <button data-event="__no_event__">No event</button>
-            <button data-event="__skip__">Skip / undo</button>
+            <button data-event="__skip__">Skip (label later)</button>
+            <button data-event="__discard__">Discard (low quality)</button>
           </div>
         </div>
 
@@ -917,6 +934,15 @@ liveToggle.onclick = () => {
   setToggleState(true, 0);
 };
 
+// IDs of captured rows currently checked for merge.
+let mergeSelected = new Set();
+const liveMerge = document.getElementById("live-merge");
+
+function updateMergeButton() {
+  liveMerge.textContent = `Merge selected (${mergeSelected.size})`;
+  liveMerge.disabled = mergeSelected.size < 2;
+}
+
 async function renderLiveList() {
   const rows = await dbAll(STORE_LIVE);
   liveCount.textContent = rows.length;
@@ -926,8 +952,16 @@ async function renderLiveList() {
       '<div class="live-row" style="color:var(--muted)">No utterances yet — tap the big button above.</div>';
     reviewCard.style.display = "none";
     pendingReviewRow = null;
+    mergeSelected.clear();
+    updateMergeButton();
     return;
   }
+  // Drop selections that no longer exist in the store.
+  const ids = new Set(rows.map((r) => r.id));
+  for (const sid of Array.from(mergeSelected)) {
+    if (!ids.has(sid)) mergeSelected.delete(sid);
+  }
+  updateMergeButton();
   // Sort newest-first (default) or oldest-first per the toggle.
   const sorted = rows.slice().sort((a, b) =>
     liveListOrder === "newest"
@@ -939,10 +973,22 @@ async function renderLiveList() {
     div.className = "live-row";
     const ts = new Date(r.wall_clock_ms).toLocaleTimeString();
     const tag = r.game ? `<span class="ts" style="color:var(--indigo-dark);min-width:0;margin-left:4px">[${escapeHtml(r.game)}]</span>` : "";
+    const checked = mergeSelected.has(r.id) ? "checked" : "";
     div.innerHTML =
-      '<span class="ts">' + ts + "</span><span>" + escapeHtml(r.transcript) + "</span>" + tag;
+      `<input type="checkbox" data-merge-id="${r.id}" ${checked} style="flex-shrink:0;margin-top:2px;transform:scale(1.3)" />` +
+      '<span class="ts">' + ts + "</span>" +
+      "<span style=\"flex:1\">" + escapeHtml(r.transcript) + "</span>" + tag;
     div.style.cursor = "pointer";
-    div.onclick = () => openReview(r);
+    div.onclick = (ev) => {
+      // Tapping the checkbox toggles selection; tapping elsewhere opens for review.
+      if (ev.target.matches('input[type="checkbox"]')) {
+        if (ev.target.checked) mergeSelected.add(r.id);
+        else mergeSelected.delete(r.id);
+        updateMergeButton();
+        return;
+      }
+      openReview(r);
+    };
     liveList.appendChild(div);
   }
   // Auto-open the OLDEST row for review (so labelling proceeds in
@@ -952,6 +998,35 @@ async function renderLiveList() {
     openReview(chrono[0]);
   }
 }
+
+liveMerge.onclick = async () => {
+  if (mergeSelected.size < 2) return;
+  const rows = await dbAll(STORE_LIVE);
+  const selectedRows = rows
+    .filter((r) => mergeSelected.has(r.id))
+    .sort((a, b) => a.wall_clock_ms - b.wall_clock_ms);
+  if (selectedRows.length < 2) return;
+  if (
+    !confirm(
+      `Merge ${selectedRows.length} rows into one? Transcripts will be joined with " · " and the earliest timestamp kept.`,
+    )
+  ) {
+    return;
+  }
+  const merged = {
+    transcript: selectedRows.map((r) => r.transcript).join(" · "),
+    wall_clock_ms: selectedRows[0].wall_clock_ms,
+    game: selectedRows[0].game ?? null,
+    merged_from: selectedRows.map((r) => r.id),
+  };
+  await dbAdd(STORE_LIVE, merged);
+  for (const r of selectedRows) await dbDelete(STORE_LIVE, r.id);
+  mergeSelected.clear();
+  // Drop the in-progress review row if it was one of the merged.
+  pendingReviewRow = null;
+  await renderLiveList();
+  refreshStats();
+};
 
 // Queued events for the currently-open utterance (multi-event support).
 let multiEventQueue = [];
@@ -1003,8 +1078,22 @@ function openReview(row) {
   reviewCard.style.display = "block";
   const ts = new Date(row.wall_clock_ms).toLocaleTimeString();
   const tag = row.game ? ` · [${row.game}]` : "";
-  reviewRowInfo.textContent = "Captured at " + ts + tag;
-  reviewTranscript.textContent = row.transcript;
+  const mergedNote = row.merged_from ? ` · merged from ${row.merged_from.length} rows` : "";
+  reviewRowInfo.textContent = "Captured at " + ts + tag + mergedNote;
+  // The transcript field is now an editable textarea. Pre-fill with
+  // the captured transcript (which may already be a manual edit from
+  // a previous Save & next of this row); the truly original raw ASR
+  // is stored separately as original_transcript when first edited.
+  reviewTranscript.value = row.transcript;
+  // Show the original ASR if this row has been edited before.
+  const origRow = document.getElementById("review-original-row");
+  const origEl = document.getElementById("review-original");
+  if (row.original_transcript && row.original_transcript !== row.transcript) {
+    origEl.textContent = row.original_transcript;
+    origRow.style.display = "block";
+  } else {
+    origRow.style.display = "none";
+  }
   clearReviewSelection();
   renderMultiList();
 }
@@ -1057,13 +1146,38 @@ reviewSideAway.onclick = () => {
 
 reviewSave.onclick = async () => {
   if (!pendingReviewRow) return;
+  // Discard short-circuits: drop the captured row, write nothing to
+  // the labelled store. Useful for utterances that were so corrupted
+  // by ASR that any label would be guessing.
+  if (reviewSelectedEvent === "__discard__") {
+    await dbDelete(STORE_LIVE, pendingReviewRow.id);
+    pendingReviewRow = null;
+    multiEventQueue = [];
+    await renderLiveList();
+    refreshStats();
+    return;
+  }
+  // Read the (possibly edited) transcript. Preserve the original ASR
+  // separately for audit + downstream training-data analysis.
+  const editedTranscript = reviewTranscript.value.trim();
+  const rawOriginal =
+    pendingReviewRow.original_transcript || pendingReviewRow.transcript;
+  if (!editedTranscript) {
+    alert("Transcript cannot be empty. Discard the row instead if you can't recover it.");
+    return;
+  }
   // Determine final expected_parse:
   //   * Multi-queue + no current → use the queue as a multi-event row.
   //   * Multi-queue + current selected → append current then use multi.
   //   * Just current selection → use single (or intent for no_event/skip).
   let expected_parse;
   if (multiEventQueue.length > 0) {
-    if (reviewSelectedEvent && reviewSelectedEvent !== "__no_event__" && reviewSelectedEvent !== "__skip__") {
+    if (
+      reviewSelectedEvent &&
+      reviewSelectedEvent !== "__no_event__" &&
+      reviewSelectedEvent !== "__skip__" &&
+      reviewSelectedEvent !== "__discard__"
+    ) {
       const current = buildSingleEvent({
         eventChoice: reviewSelectedEvent,
         jersey: reviewNoJersey.checked ? null : reviewJersey.value.trim() || null,
@@ -1074,7 +1188,7 @@ reviewSave.onclick = async () => {
     expected_parse = multiEventQueue.length === 1 ? multiEventQueue[0] : multiEventQueue.slice();
   } else {
     if (!reviewSelectedEvent) {
-      alert("Pick an event button (or 'No event' / 'Skip').");
+      alert("Pick an event button (or 'No event' / 'Skip' / 'Discard').");
       return;
     }
     expected_parse = buildExpectedParse({
@@ -1083,14 +1197,24 @@ reviewSave.onclick = async () => {
       side: reviewSide,
     });
   }
-  await dbAdd(STORE_SAVED, {
-    transcript: pendingReviewRow.transcript,
+  const savedRow = {
+    transcript: editedTranscript,
     context: "idle", // Capture rows don't track context — labeller can edit later
     expected_parse,
     wall_clock_ms: pendingReviewRow.wall_clock_ms,
     mode: "live",
     game: pendingReviewRow.game ?? null,
-  });
+  };
+  // Only attach original_transcript when the labeller actually edited
+  // the text — keeps the JSONL clean for the (common) no-edit case
+  // and preserves real ASR errors when the labeller did edit.
+  if (editedTranscript !== rawOriginal) {
+    savedRow.original_transcript = rawOriginal;
+  }
+  if (pendingReviewRow.merged_from) {
+    savedRow.merged_from = pendingReviewRow.merged_from;
+  }
+  await dbAdd(STORE_SAVED, savedRow);
   await dbDelete(STORE_LIVE, pendingReviewRow.id);
   pendingReviewRow = null;
   multiEventQueue = [];
@@ -1111,18 +1235,19 @@ reviewDelete.onclick = async () => {
 };
 
 function buildExpectedParse({ eventChoice, jersey, side }) {
-  if (eventChoice === "__no_event__") {
-    return { intent: "no_event" };
-  }
-  if (eventChoice === "__skip__") {
-    return { intent: "skip" };
-  }
+  if (eventChoice === "__no_event__") return { intent: "no_event" };
+  if (eventChoice === "__skip__") return { intent: "skip" };
+  if (eventChoice === "__discard__") return null;
   return buildSingleEvent({ eventChoice, jersey, side });
 }
 // Like buildExpectedParse but ONLY for the multi-event-queue path —
-// rejects the intent shapes (no_event / skip) which can't compose.
+// rejects the intent / discard shapes which can't compose.
 function buildSingleEvent({ eventChoice, jersey, side }) {
-  if (eventChoice === "__no_event__" || eventChoice === "__skip__") return null;
+  if (
+    eventChoice === "__no_event__" ||
+    eventChoice === "__skip__" ||
+    eventChoice === "__discard__"
+  ) return null;
   const out = { event_type: eventChoice, player_jersey: jersey };
   if (side === "away") {
     out.metadata = { team_side: "away" };
